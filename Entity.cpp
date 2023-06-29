@@ -1,13 +1,26 @@
-#include "Entity.hpp"
+#pragma once
 
-Entity::Entity(const std::string& tag, size_t id): m_tag(tag), m_id(id), m_active(true) {};
+#include "Entity.hpp"
+#include <string>
+
+Entity::Entity(const std::string& tag, size_t id): m_tag(tag), m_id(id) {};
 
 void Entity::destroy() 
 {
 	m_active = false;
 }
 
-std::string& Entity::getTag()
+bool Entity::isActive() const
+{
+	return m_active;
+}
+
+const std::string& Entity::getTag() const
 {
 	return m_tag;
+}
+
+const size_t Entity::getId() const
+{
+	return m_id;
 }

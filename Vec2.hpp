@@ -1,27 +1,33 @@
 #pragma once
+
 class Vec2
 {
-	double x;
-	double y;
+	float x = 0;
+	float y = 0;
 
 public:
 	Vec2();
 
-	Vec2(double xin, double yin);
+	Vec2(float xin, float yin);
 
-	bool operator == (const Vec2& v);
+	bool operator == (const Vec2& v) const;
+	bool operator != (const Vec2& v) const;
 
-	bool operator != (const Vec2& v);
+	Vec2 operator + (const Vec2& rhs) const;
+	Vec2 operator - (const Vec2& rhs) const;
+	Vec2 operator * (const Vec2& rhs) const;
+	Vec2 operator / (const Vec2& rhs) const;
+	Vec2 operator * (const float val) const;
+	Vec2 operator / (const float val) const;
 
-	Vec2 operator + (const Vec2& rhs);
-
-	Vec2 operator - (const Vec2& rhs);
-
-	Vec2 operator * (const Vec2& rhs);
-
-	Vec2 operator / (const Vec2& rhs);
+	void operator += (const Vec2& rhs);
+	void operator -= (const Vec2& rhs);
+	void operator *= (const Vec2& rhs);
+	void operator /= (const Vec2& rhs);
+	void operator *= (const float val);
+	void operator /= (const float val);
 
 	void normalize();
 
-	double length();
+	float dist();
 };

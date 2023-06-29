@@ -1,10 +1,23 @@
+#pragma once
 #include "Components.hpp"
 
-CCollision::CCollision(): radius(0) {};
+CTransform::CTransform(const Vec2& p, const Vec2& v, float a) : pos(p), velocity(v), angle(a) {};
+
+CShape::CShape(float radius, int points, const sf::Color& fill
+	, const sf::Color& outline, float thickness)
+	: circle(radius, points)
+{
+	circle.setFillColor(fill);
+	circle.setOutlineColor(outline);
+	circle.setOutlineThickness(thickness);
+	circle.setOrigin(radius, radius);
+};
+
 CCollision::CCollision(float rad) : radius(rad) {};
 
-CScore::CScore(): score(0) {};
 CScore::CScore(int s) : score(s) {};
 
-CTransform::CTransform(): pos(Vec2(0,0)), velocity(Vec2(0,0)), angle(0) {};
-CTransform::CTransform(const Vec2& p, const Vec2& v) : pos(p), velocity(v) {};
+CLifespan::CLifespan(int total) : remaining(total), total(total) {};
+
+CInput::CInput() {};
+

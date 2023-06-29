@@ -1,8 +1,10 @@
-#include "EntityManager.hpp"
-#include "Entity.hpp"
-#include <memory>
+#pragma once
 
-EntityManager::EntityManager(): m_total_entities(0) {};
+#include "EntityManager.hpp"
+
+EntityManager::EntityManager() {};
+
+void EntityManager::init() {}
 
 void EntityManager::update()
 {
@@ -13,25 +15,29 @@ void EntityManager::update()
 	}
 	m_toAdd.clear();
 
-	for (auto e : m_entities)
+	for (auto it = m_entities.begin(); it != m_entities.end(); it++)
 	{
-
+		if (!(*it)->isActive())
+		{
+			it = m_entities.erase(it);
+		}
 	}
 }
 
 std::shared_ptr<Entity> EntityManager::addEntity(const std::string& tag) 
 {
-	std::shared_ptr<Entity> e = std::make_shared<Entity>(tag, m_total_entities++);
+	// to make entity that has private 
+	std::shared_ptr<Entity> e = std::shared_ptr<Entity>(new Entity(tag, m_total_entities++));
 	m_toAdd.push_back(e);
 	return e;
 };
 
-EntityVector& EntityManager::getEntites()
+EntityVector& EntityManager::getEntities()
 {
 	return m_entities;
 }
 
-EntityVector& EntityManager::getEntites(const std::string& tag)
+EntityVector& EntityManager::getEntities(const std::string& tag)
 {
 	return m_entityMap[tag];
 }
