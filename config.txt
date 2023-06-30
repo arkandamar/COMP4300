@@ -1,0 +1,5 @@
+Window width=1280 height=720 frame=60 fullscreen=0
+Font name=fonts/arial.ttf size=24 rgb(255,255,255)
+Player radius=32 coll_radius=32 speed=5 fill_rgb(5,5,5) out_rgb(255,0,0) thick=4 vert=8
+Enemy radius=32 coll_radius=32 speed_min=3 speed_max=3 out_rgb(255,255,255) thick=2 vert_min=3 vert_max=8 lifespan=90 spawn_rate=60
+Bullet radius=10 coll_radius=10 speed=20 fill_rgb(255,255,255) out_rgb(255,255,255) thick=2 vert=20 lifespan=90

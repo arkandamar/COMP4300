@@ -1,5 +1,6 @@
 #pragma once
 #include "Components.hpp"
+#include <iostream>
 
 CTransform::CTransform(const Vec2& p, const Vec2& v, float a) : pos(p), velocity(v), angle(a) {};
 

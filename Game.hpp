@@ -1,23 +1,51 @@
-#include <SFML/Graphics.hpp>
-#include "EntityManager.hpp"
-
 #pragma once
+
+#include "EntityManager.hpp"
+#include "Entity.hpp"
+
+#include <SFML/Graphics.hpp>
+
+struct PlayerConfig { int SR, CR, FR, FG, FB, OR, OG, OB, OT, V; float S; };
+struct EnemyConfig { int SR, CR, OR, OG, OB, OT, VMIN, VMAX, L, SF; float SMIN, SMAX; };
+struct BulletConfig { int SR, CR, FR, FG, FB, OR, OG, OB, OT, V, L; float S; };
+
 class Game
 {
 	sf::RenderWindow m_window;
 	EntityManager m_entities;
-	Entity m_player;
-	bool m_pause;
-	bool m_running;
+	sf::Font m_font;
+	sf::Text m_text;
+	PlayerConfig m_playerConfig;
+	EnemyConfig m_enemyConfig;
+	BulletConfig m_bulletConfig;
+	int m_score = 0;
+	int m_currentFrame = 0;
+	int m_lastEnemySpawnTime = 0;
+	bool m_paused = false; // whether game logic is updated
+	bool m_running = true; // whether game is running
+	
+	std::shared_ptr<Entity> m_player;
 
-public:
-	void init();
-	void update();
+	Game(std::string& filename);
+	void init(const std::string& config); //initialize the game state
+	void setPaused(bool paused);
 
 	// system
 	void sMovement(std::vector<Entity>& entities);
 	void sUserInput();
-	void sRender(std::vector<Entity>& entities());
+	void sLifespan();
+	void sRender();
 	void sEnemySpawner();
 	void sCollision();
+
+	void spawnPlayer();
+	void spawnEnemy();
+	void spawnSmallEnemies(std::shared_ptr<Entity> entity);
+	void spawnBullet(std::shared_ptr<Entity> entity, const Vec2& mousePos);
+	void spawnSpecialWeapon(std::shared_ptr<Entity> entity);
+
+public:
+
+	Game(const std::string& config);
+	void run();
 };
