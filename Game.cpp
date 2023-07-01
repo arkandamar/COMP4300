@@ -209,11 +209,11 @@ void Game::init(const std::string& path)
 		{
 			fin >> temp;
 			int radius = utils::extractValue<int>(temp, "=");
-			m_bulletConfig.SR;
+			m_bulletConfig.SR = radius;
 
 			fin >> temp;
 			int coll_rad = utils::extractValue<int>(temp, "=");
-			m_bulletConfig.CR;
+			m_bulletConfig.CR = coll_rad;
 
 			fin >> temp;
 			float speed = utils::extractValue<float>(temp, "=");
@@ -264,19 +264,46 @@ void Game::spawnPlayer()
 			sf::Color(m_playerConfig.OR, m_playerConfig.OG, m_playerConfig.OB), 
 			m_playerConfig.OT
 		);
-
 	player->cTransform = std::make_shared<CTransform>
 		(
 			Vec2(m_window.getSize().x / 2, m_window.getSize().y / 2),
-			Vec2(m_playerConfig.S * cos(0), m_playerConfig.S * sin(0)),
+			Vec2(0, 0),
 			0.0f
 		);
-
-	player->cShape->circle.setPosition(player->cTransform->pos.x, player->cTransform->pos.y);
-
 	player->cInput = std::make_shared<CInput>();
 
+	player->cShape->circle.setOrigin(m_playerConfig.SR, m_playerConfig.SR);
+	player->cShape->circle.setPosition(player->cTransform->pos.x, player->cTransform->pos.y);
+
 	m_player = player;
+}
+
+void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2& mousePos)
+{
+	std::shared_ptr<Entity> bullet = m_entities.addEntity("Bullet");
+
+	bullet->cShape = std::make_shared<CShape>
+		(
+			m_bulletConfig.SR, m_bulletConfig.V,
+			sf::Color(m_bulletConfig.FR, m_bulletConfig.FG, m_bulletConfig.FB),
+			sf::Color(m_bulletConfig.OR, m_bulletConfig.OG, m_bulletConfig.OB),
+			m_bulletConfig.OT
+		);
+
+	float diffX = mousePos.x - entity->cTransform->pos.x;
+	float diffY = mousePos.y - entity->cTransform->pos.y;
+	float dist = sqrt(diffX * diffX + diffY * diffY);
+	float angle = acosf(diffX / dist);
+
+	bullet->cTransform = std::make_shared<CTransform>
+		(
+			Vec2(entity->cShape->circle.getPosition().x, entity->cShape->circle.getPosition().y),
+			Vec2(diffX / dist * m_bulletConfig.S, diffY / dist * m_bulletConfig.S),
+			angle
+		);
+
+	bullet->cShape->circle.setOrigin(m_bulletConfig.SR, m_bulletConfig.SR);
+	bullet->cShape->circle.setPosition(bullet->cTransform->pos.x, bullet->cTransform->pos.y);
 }
 
 void Game::spawnEnemy()
@@ -294,14 +321,25 @@ void Game::spawnEnemy()
 	int posX = utils::random<int>(m_enemyConfig.SR, m_window.getSize().x - m_enemyConfig.SR);
 	int posY = utils::random<int>(m_enemyConfig.SR, m_window.getSize().y - m_enemyConfig.SR);
 
+	float velX = 3 * cos(0);
+	float velY = 3 * sin(0);
+
 	enemy->cTransform = std::make_shared<CTransform>
 		(
 			Vec2(posX, posY),
-			Vec2(1, 1),
+			Vec2(velX, velY),
 			0.0f
 		);
 
 	m_lastEnemySpawnTime = m_currentFrame;
+}
+
+void Game::spawnSpecialWeapon(std::shared_ptr<Entity> entity)
+{
+	if (m_currentFrame - m_lastUsedSpecialWeapon >= 300)
+	{
+		m_lastUsedSpecialWeapon = m_currentFrame;
+	}
 }
 
 void Game::run()
@@ -312,11 +350,9 @@ void Game::run()
 
 		if (!m_paused)
 		{
-			if (m_currentFrame - m_lastEnemySpawnTime >= m_enemyConfig.SF)
-			{
-				spawnEnemy();
-			}
-
+			sCollision();
+			sMovement();
+			sEnemySpawner();
 			sUserInput();
 		}
 		else {
@@ -329,6 +365,19 @@ void Game::run()
 	}
 }
 
+void Game::sEnemySpawner()
+{
+	if (m_currentFrame - m_lastEnemySpawnTime >= m_enemyConfig.SF)
+	{
+		spawnEnemy();
+	}
+}
+
+void Game::sCollision()
+{
+
+}
+
 void Game::sRender()
 {
 	m_window.clear();
@@ -336,13 +385,69 @@ void Game::sRender()
 	for (auto& e : m_entities.getEntities())
 	{
 		e->cShape->circle.setPosition(e->cTransform->pos.x, e->cTransform->pos.y);
-		e->cTransform->angle += 1.0f;
 		e->cShape->circle.setRotation(e->cTransform->angle);
 		m_window.draw(e->cShape->circle);
 	}
 	m_window.draw(m_text);
 
 	m_window.display();
+}
+
+
+void Game::sMovement()
+{
+	for (auto& e : m_entities.getEntities())
+	{
+		if (e->cShape->circle.getPosition().x - e->cShape->circle.getRadius() <= 0)
+		{
+			e->cTransform->velocity.x *= -1;
+		}
+		if (e->cShape->circle.getPosition().y - e->cShape->circle.getRadius() <= 0)
+		{
+			e->cTransform->velocity.y *= -1;
+		}
+		if (e->cShape->circle.getPosition().x + e->cShape->circle.getRadius() >= m_window.getSize().x)
+		{
+			e->cTransform->velocity.x *= -1;
+		}
+		if (e->cShape->circle.getPosition().y + e->cShape->circle.getRadius() >= m_window.getSize().y)
+		{
+			e->cTransform->velocity.y *= -1;
+		}
+
+		e->cTransform->angle += 1.0f;
+
+		e->cShape->circle.setPosition
+		(
+			e->cTransform->pos.x += e->cTransform->velocity.x,
+			e->cTransform->pos.y += e->cTransform->velocity.y
+		);
+	}
+
+	// player movement
+	if (m_player->cInput->down && m_player->cTransform->pos.y + m_player->cShape->circle.getRadius() + 
+		m_player->cShape->circle.getOutlineThickness() <= m_window.getSize().y)
+	{
+		m_player->cTransform->pos.y += m_playerConfig.S;
+	}
+	
+	if (m_player->cInput->up && m_player->cTransform->pos.y - m_player->cShape->circle.getRadius() -
+		m_player->cShape->circle.getOutlineThickness() >= 0)
+	{
+		m_player->cTransform->pos.y -= m_playerConfig.S;
+	}
+	
+	if (m_player->cInput->right && m_player->cTransform->pos.x + m_player->cShape->circle.getRadius() +
+		m_player->cShape->circle.getOutlineThickness() <= m_window.getSize().x)
+	{
+		m_player->cTransform->pos.x += m_playerConfig.S;
+	}
+	
+	if (m_player->cInput->left && m_player->cTransform->pos.x - m_player->cShape->circle.getRadius() -
+		m_player->cShape->circle.getOutlineThickness() >= 0)
+	{
+		m_player->cTransform->pos.x -= m_playerConfig.S;
+	}
 }
 
 void Game::sUserInput()
@@ -353,12 +458,11 @@ void Game::sUserInput()
 		if (event.type == sf::Event::Closed)
 		{
 			m_running = false;
-			m_window.close();
 		}
 
 		if (event.type == sf::Event::MouseButtonPressed)
 		{
-			std::cout << sf::Mouse::getPosition(m_window).x << " " << sf::Mouse::getPosition(m_window).y << std::endl;
+			spawnBullet(m_player, Vec2(sf::Mouse::getPosition(m_window).x, sf::Mouse::getPosition(m_window).y));
 		}
 
 		if (event.type == sf::Event::KeyPressed)
@@ -367,35 +471,49 @@ void Game::sUserInput()
 			{
 				setPaused(true);
 			}
-
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
 			{
-				std::cout << "game return" << std::endl;
+				setPaused(false);
 			}
-
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
 			{
-				std::cout << "using special ability" << std::endl;
+				spawnSpecialWeapon(m_player);
 			}
-
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
 			{
 				m_player->cInput->left = true;
 			}
-
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
 			{
 				m_player->cInput->up = true;
 			}
-
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
 			{
 				m_player->cInput->down = true;
 			}
-
 			if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
 			{
 				m_player->cInput->right = true;
+			}
+		}
+
+		if (event.type == sf::Event::KeyReleased)
+		{
+			if (event.key.code == sf::Keyboard::A)
+			{
+				m_player->cInput->left = false;
+			}
+			if (event.key.code == sf::Keyboard::W)
+			{
+				m_player->cInput->up = false;
+			}
+			if (event.key.code == sf::Keyboard::S)
+			{
+				m_player->cInput->down = false;
+			}
+			if (event.key.code == sf::Keyboard::D)
+			{
+				m_player->cInput->right = false;
 			}
 		}
 	}

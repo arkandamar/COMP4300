@@ -21,6 +21,7 @@ class Game
 	int m_score = 0;
 	int m_currentFrame = 0;
 	int m_lastEnemySpawnTime = 0;
+	int m_lastUsedSpecialWeapon = 0;
 	bool m_paused = false; // whether game logic is updated
 	bool m_running = true; // whether game is running
 	
@@ -31,7 +32,7 @@ class Game
 	void setPaused(bool paused);
 
 	// system
-	void sMovement(std::vector<Entity>& entities);
+	void sMovement();
 	void sUserInput();
 	void sLifespan();
 	void sRender();
