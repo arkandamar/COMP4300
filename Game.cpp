@@ -6,7 +6,7 @@
 #include <iostream>
 #include <random>
 #include <chrono>
-#include <string>
+#include <math.h>
 
 using std::cout;
 using std::endl;
@@ -64,6 +64,11 @@ namespace utils {
 		}
 		previous = current;
 		return current;
+	}
+
+	float rad(float deg)
+	{
+		return deg * (std::_Pi / 180);
 	}
 }
 
@@ -272,6 +277,7 @@ void Game::spawnPlayer()
 		);
 	player->cInput = std::make_shared<CInput>();
 	player->cCollision = std::make_shared<CCollision>(m_playerConfig.CR);
+	player->cScore = std::make_shared<CScore>(0);
 
 	// setting default properties
 	player->cShape->circle.setOrigin(m_playerConfig.SR, m_playerConfig.SR);
@@ -338,7 +344,32 @@ void Game::spawnEnemy()
 
 void Game::spawnSmallEnemies(std::shared_ptr<Entity> enemy)
 {
+	// seperating angle between small enemies
+	float sepAngle = 360 / enemy->cShape->circle.getPointCount();
+	for (int i = 1; i <= enemy->cShape->circle.getPointCount(); ++i)
+	{
+		std::shared_ptr<Entity> sEnemy =  m_entities.addEntity("Small Enemy");
+		sEnemy->cShape = std::make_shared<CShape>
+			(
+				enemy->cShape->circle.getRadius() / 2,
+				enemy->cShape->circle.getPointCount(),
+				enemy->cShape->circle.getFillColor(),
+				enemy->cShape->circle.getOutlineColor(),
+				enemy->cShape->circle.getOutlineThickness()
+			);
 
+		float velX = cos(utils::rad(enemy->cTransform->angle + (sepAngle * i))) * 1;
+		float velY = sin(utils::rad(enemy->cTransform->angle + (sepAngle * i))) * 1;
+	
+		sEnemy->cTransform = std::make_shared<CTransform>
+			(
+				enemy->cTransform->pos,
+				Vec2(velX, velY),
+				0.0f
+			);
+		sEnemy->cLifespan = std::make_shared<CLifespan>(m_enemyConfig.L);
+		sEnemy->cCollision = std::make_shared<CCollision>(enemy->cShape->circle.getRadius() / 2);
+	}
 }
 
 void Game::spawnSpecialWeapon(std::shared_ptr<Entity> entity)
@@ -361,11 +392,9 @@ void Game::run()
 			sMovement();
 			sEnemySpawner();
 			sLifespan();
-			sUserInput();
 		}
-		else {
-			std::cout << "game is paused" << std::endl;
-		}
+		
+		sUserInput();
 		sRender();
 		m_currentFrame++;
 	}
@@ -392,10 +421,23 @@ void Game::sLifespan()
 			e->cLifespan->remaining -= 1;
 		}
 	}
+
+	for (auto& e : m_entities.getEntities("Small Enemy"))
+	{
+		if (e->cLifespan->remaining <= 0)
+		{
+			e->destroy();
+		}
+		else
+		{
+			e->cLifespan->remaining -= 1;
+		}
+	}
 }
 
 void Game::sCollision()
 {
+	// if enemy collide with bullet
 	for (auto& b : m_entities.getEntities("Bullet"))
 	{
 		for (auto& e : m_entities.getEntities("Enemy"))
@@ -406,13 +448,15 @@ void Game::sCollision()
 
 			if (diffX * diffX + diffY * diffY <= sumRad * sumRad)
 			{
+				spawnSmallEnemies(e);
 				e->destroy();
 				b->destroy();
-				spawnSmallEnemies(e);
+				m_player->cScore->score += 100;
 			}
 		}
 	}
 
+	// if enemy collide with player
 	for (auto& e : m_entities.getEntities("Enemy"))
 	{
 		float diffX = (m_player->cTransform->pos.x - e->cTransform->pos.x);
@@ -423,6 +467,40 @@ void Game::sCollision()
 		{
 			e->destroy();
 			m_player->cTransform->pos = Vec2(m_window.getSize().x / 2, m_window.getSize().y / 2);
+			m_player->cScore->score = 0;
+		}
+	}
+
+	// if small enemy collide with bullet
+	for (auto& b : m_entities.getEntities("Bullet"))
+	{
+		for (auto& e : m_entities.getEntities("Small Enemy"))
+		{
+			float diffX = (b->cTransform->pos.x - e->cTransform->pos.x);
+			float diffY = (b->cTransform->pos.y - e->cTransform->pos.y);
+			float sumRad = (b->cCollision->radius + e->cCollision->radius);
+
+			if (diffX * diffX + diffY * diffY <= sumRad * sumRad)
+			{
+				e->destroy();
+				b->destroy();
+				m_player->cScore->score += 200;
+			}
+		}
+	}
+
+	// if small enemy collide with player
+	for (auto& e : m_entities.getEntities("Small Enemy"))
+	{
+		float diffX = (m_player->cTransform->pos.x - e->cTransform->pos.x);
+		float diffY = (m_player->cTransform->pos.y - e->cTransform->pos.y);
+		float sumRad = (m_player->cCollision->radius + e->cCollision->radius);
+
+		if (diffX * diffX + diffY * diffY <= sumRad * sumRad)
+		{
+			e->destroy();
+			m_player->cTransform->pos = Vec2(m_window.getSize().x / 2, m_window.getSize().y / 2);
+			m_player->cScore->score = 0;
 		}
 	}
 }
@@ -437,6 +515,7 @@ void Game::sRender()
 		e->cShape->circle.setRotation(e->cTransform->angle);
 		m_window.draw(e->cShape->circle);
 	}
+	m_text.setString(std::to_string(m_player->cScore->score));
 	m_window.draw(m_text);
 
 	m_window.display();
@@ -504,65 +583,69 @@ void Game::sUserInput()
 	sf::Event event;
 	while (m_window.pollEvent(event))
 	{
+		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
+		{
+			setPaused(false);
+		}
+
 		if (event.type == sf::Event::Closed)
 		{
 			m_running = false;
 		}
 
-		if (event.type == sf::Event::MouseButtonPressed)
-		{
-			spawnBullet(m_player, Vec2(sf::Mouse::getPosition(m_window).x, sf::Mouse::getPosition(m_window).y));
-		}
+		if (!m_paused) 
+		{	
+			if (event.type == sf::Event::MouseButtonPressed)
+			{
+				spawnBullet(m_player, Vec2(sf::Mouse::getPosition(m_window).x, sf::Mouse::getPosition(m_window).y));
+			}
 
-		if (event.type == sf::Event::KeyPressed)
-		{
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::P))
+			if (event.type == sf::Event::KeyPressed)
 			{
-				setPaused(true);
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::P))
+				{
+					setPaused(true);
+				}
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
+				{
+					spawnSpecialWeapon(m_player);
+				}
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+				{
+					m_player->cInput->left = true;
+				}
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
+				{
+					m_player->cInput->up = true;
+				}
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+				{
+					m_player->cInput->down = true;
+				}
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+				{
+					m_player->cInput->right = true;
+				}
 			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-			{
-				setPaused(false);
-			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
-			{
-				spawnSpecialWeapon(m_player);
-			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::A))
-			{
-				m_player->cInput->left = true;
-			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::W))
-			{
-				m_player->cInput->up = true;
-			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
-			{
-				m_player->cInput->down = true;
-			}
-			if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
-			{
-				m_player->cInput->right = true;
-			}
-		}
 
-		if (event.type == sf::Event::KeyReleased)
-		{
-			if (event.key.code == sf::Keyboard::A)
+			if (event.type == sf::Event::KeyReleased)
 			{
-				m_player->cInput->left = false;
-			}
-			if (event.key.code == sf::Keyboard::W)
-			{
-				m_player->cInput->up = false;
-			}
-			if (event.key.code == sf::Keyboard::S)
-			{
-				m_player->cInput->down = false;
-			}
-			if (event.key.code == sf::Keyboard::D)
-			{
-				m_player->cInput->right = false;
+				if (event.key.code == sf::Keyboard::A)
+				{
+					m_player->cInput->left = false;
+				}
+				if (event.key.code == sf::Keyboard::W)
+				{
+					m_player->cInput->up = false;
+				}
+				if (event.key.code == sf::Keyboard::S)
+				{
+					m_player->cInput->down = false;
+				}
+				if (event.key.code == sf::Keyboard::D)
+				{
+					m_player->cInput->right = false;
+				}
 			}
 		}
 	}
