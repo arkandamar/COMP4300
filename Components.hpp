@@ -55,3 +55,11 @@ public:
 
 	CInput();
 };
+
+class CCooldown
+{
+public:
+	int remaining = 0;
+	int total = 0;
+	CCooldown(int total); // total cooldown (in frame)
+};

@@ -22,3 +22,5 @@ CLifespan::CLifespan(int total) : remaining(total), total(total) {};
 
 CInput::CInput() {};
 
+CCooldown::CCooldown(int total) : remaining(total), total(total) {};
+
