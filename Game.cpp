@@ -6,6 +6,7 @@
 #include <iostream>
 #include <random>
 #include <chrono>
+#include <string>
 
 using std::cout;
 using std::endl;
@@ -61,7 +62,6 @@ namespace utils {
 		while (current == previous) {
 			current = distribution(generator);
 		}
-
 		previous = current;
 		return current;
 	}
@@ -271,7 +271,9 @@ void Game::spawnPlayer()
 			0.0f
 		);
 	player->cInput = std::make_shared<CInput>();
+	player->cCollision = std::make_shared<CCollision>(m_playerConfig.CR);
 
+	// setting default properties
 	player->cShape->circle.setOrigin(m_playerConfig.SR, m_playerConfig.SR);
 	player->cShape->circle.setPosition(player->cTransform->pos.x, player->cTransform->pos.y);
 
@@ -301,7 +303,10 @@ void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2& mousePos)
 			Vec2(diffX / dist * m_bulletConfig.S, diffY / dist * m_bulletConfig.S),
 			angle
 		);
+	bullet->cLifespan = std::make_shared<CLifespan>(m_bulletConfig.L);
+	bullet->cCollision = std::make_shared<CCollision>(m_bulletConfig.CR);
 
+	// setting default properties
 	bullet->cShape->circle.setOrigin(m_bulletConfig.SR, m_bulletConfig.SR);
 	bullet->cShape->circle.setPosition(bullet->cTransform->pos.x, bullet->cTransform->pos.y);
 }
@@ -316,22 +321,24 @@ void Game::spawnEnemy()
 			sf::Color(0, 0, 0, 0), sf::Color(m_enemyConfig.OR, m_enemyConfig.OG, m_enemyConfig.OB),
 			m_enemyConfig.OT
 		);
-	enemy->cShape->circle.setOrigin(m_enemyConfig.SR, m_enemyConfig.SR);
-
 	int posX = utils::random<int>(m_enemyConfig.SR, m_window.getSize().x - m_enemyConfig.SR);
 	int posY = utils::random<int>(m_enemyConfig.SR, m_window.getSize().y - m_enemyConfig.SR);
 
-	float velX = 3 * cos(0);
-	float velY = 3 * sin(0);
+	/*float velX = utils::random<int>(m_enemyConfig.SMIN, m_enemyConfig.SMAX) * cos(0);
+	float velY = utils::random<int>(m_enemyConfig.SMIN, m_enemyConfig.SMAX) * sin(0);*/
 
-	enemy->cTransform = std::make_shared<CTransform>
-		(
-			Vec2(posX, posY),
-			Vec2(velX, velY),
-			0.0f
-		);
+	enemy->cTransform = std::make_shared<CTransform>(Vec2(posX, posY), Vec2(1.0f, 1.0f), 0.0f);
+	enemy->cCollision = std::make_shared<CCollision>(m_enemyConfig.CR);
+
+	// setting default properties
+	enemy->cShape->circle.setOrigin(m_enemyConfig.SR, m_enemyConfig.SR);
 
 	m_lastEnemySpawnTime = m_currentFrame;
+}
+
+void Game::spawnSmallEnemies(std::shared_ptr<Entity> enemy)
+{
+
 }
 
 void Game::spawnSpecialWeapon(std::shared_ptr<Entity> entity)
@@ -353,14 +360,13 @@ void Game::run()
 			sCollision();
 			sMovement();
 			sEnemySpawner();
+			sLifespan();
 			sUserInput();
 		}
 		else {
 			std::cout << "game is paused" << std::endl;
 		}
-
 		sRender();
-
 		m_currentFrame++;
 	}
 }
@@ -373,9 +379,52 @@ void Game::sEnemySpawner()
 	}
 }
 
+void Game::sLifespan()
+{
+	for (auto& e : m_entities.getEntities("Bullet"))
+	{
+		if (e->cLifespan->remaining <= 0)
+		{
+			e->destroy();
+		}
+		else
+		{
+			e->cLifespan->remaining -= 1;
+		}
+	}
+}
+
 void Game::sCollision()
 {
+	for (auto& b : m_entities.getEntities("Bullet"))
+	{
+		for (auto& e : m_entities.getEntities("Enemy"))
+		{
+			float diffX = (b->cTransform->pos.x - e->cTransform->pos.x);
+			float diffY = (b->cTransform->pos.y - e->cTransform->pos.y);
+			float sumRad = (b->cCollision->radius + e->cCollision->radius);
 
+			if (diffX * diffX + diffY * diffY <= sumRad * sumRad)
+			{
+				e->destroy();
+				b->destroy();
+				spawnSmallEnemies(e);
+			}
+		}
+	}
+
+	for (auto& e : m_entities.getEntities("Enemy"))
+	{
+		float diffX = (m_player->cTransform->pos.x - e->cTransform->pos.x);
+		float diffY = (m_player->cTransform->pos.y - e->cTransform->pos.y);
+		float sumRad = (m_player->cCollision->radius + e->cCollision->radius);
+
+		if (diffX * diffX + diffY * diffY <= sumRad * sumRad)
+		{
+			e->destroy();
+			m_player->cTransform->pos = Vec2(m_window.getSize().x / 2, m_window.getSize().y / 2);
+		}
+	}
 }
 
 void Game::sRender()

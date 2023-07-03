@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include "EntityManager.hpp"
 
 EntityManager::EntityManager() {};
@@ -15,12 +16,20 @@ void EntityManager::update()
 	}
 	m_toAdd.clear();
 
-	for (auto it = m_entities.begin(); it != m_entities.end(); it++)
-	{
-		if (!(*it)->isActive())
-		{
-			it = m_entities.erase(it);
-		}
+	m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(), [](std::shared_ptr<Entity> e) 
+		{ return e->isActive() == false; }
+	), m_entities.end());
+
+	// Iterate through the map and erase elements from the vector when a specific condition is fulfilled
+	for (auto& pair : m_entityMap) {
+		EntityVector& entityVector = pair.second;
+
+		entityVector.erase
+		(
+			std::remove_if(entityVector.begin(), entityVector.end(), 
+			[](std::shared_ptr<Entity> e) { return e->isActive() == false; }), 
+			entityVector.end()
+		);
 	}
 }
 
